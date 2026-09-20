@@ -1398,6 +1398,8 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
           onMouseDown={(e) => {
             const target = e.target
             if (!(target instanceof HTMLElement)) return
+            // 下拉菜单等浮层是 portal 到 body 的，事件即使走到这里也不该把焦点抢回编辑器。
+            if (!e.currentTarget.contains(target)) return
             if (target.closest('[data-action="prompt-attach"], [data-action="prompt-submit"]')) {
               return
             }
