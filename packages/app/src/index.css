@@ -86,6 +86,11 @@ html[data-theme="default"] [data-component="session-prompt-dock"] [data-dock-sur
   padding-left: calc(var(--dialog-left-margin, 0px) + 24px);
 }
 
+/* Default 主题：左下角设置按钮的齿轮比默认图标略亮一点。 */
+html[data-theme="default"] .settings-button [data-slot="icon-svg"] {
+  color: color-mix(in srgb, var(--text-strong) 60%, transparent);
+}
+
 /* Default 主题：用户消息气泡用浅灰底，和内容面区分开。 */
 html[data-theme="default"] [data-slot="user-message-text"] {
   background: color-mix(in srgb, var(--text-strong) 8%, transparent);

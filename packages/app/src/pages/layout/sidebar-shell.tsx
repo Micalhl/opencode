@@ -9,6 +9,7 @@ import {
 } from "@thisbeyond/solid-dnd"
 import { ConstrainDragXAxis } from "@/utils/solid-dnd"
 import { IconButton } from "@opencode-ai/ui/icon-button"
+import { Button } from "@opencode-ai/ui/button"
 import { Tooltip, TooltipKeybind } from "@opencode-ai/ui/tooltip"
 import { type LocalProject } from "@/context/layout"
 
@@ -114,15 +115,18 @@ export const SidebarContent = (props: {
         {props.renderGettingStarted()}
       </div>
 
-      <div class="flex shrink-0 items-center gap-1 px-3 py-3">
+      <div class="flex shrink-0 items-center gap-1 pl-3 pr-3 pt-1 pb-[13px]">
         <TooltipKeybind placement={placement()} title={props.settingsLabel()} keybind={props.settingsKeybind() ?? ""}>
-          <IconButton
-            icon="settings-gear"
+          <Button
             variant="ghost"
             size="small"
+            icon="settings-gear"
+            class="settings-button"
             onClick={props.onOpenSettings}
             aria-label={props.settingsLabel()}
-          />
+          >
+            {props.settingsLabel()}
+          </Button>
         </TooltipKeybind>
       </div>
     </div>

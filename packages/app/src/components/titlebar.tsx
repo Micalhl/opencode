@@ -117,6 +117,29 @@ export function Titlebar(props: { update?: TitlebarUpdate; sizing?: Accessor<boo
     onCleanup(() => observer.disconnect())
   })
 
+  // 中缝挂载点是覆盖整条标题栏的浮层，默认会让长标题压到右侧按钮上；按右侧按钮的实际位置收窄可用宽度。
+  let centerOverlayRef: HTMLDivElement | undefined
+  onMount(() => {
+    if (!headerRef) return
+    const side = headerRef.querySelector<HTMLElement>('[data-titlebar-side="right"]')
+    if (!side) return
+    const mounts = [...side.querySelectorAll<HTMLElement>("#opencode-titlebar-session-actions, #opencode-titlebar-right")]
+    const apply = () => {
+      if (!headerRef || !centerOverlayRef) return
+      const boundary = Math.min(...mounts.map((el) => el.getBoundingClientRect().left))
+      const offset = Number.isFinite(boundary)
+        ? Math.max(0, headerRef.getBoundingClientRect().right - boundary + 8)
+        : 0
+      centerOverlayRef.style.right = `${offset}px`
+    }
+    apply()
+    if (typeof ResizeObserver !== "function") return
+    const observer = new ResizeObserver(apply)
+    observer.observe(headerRef)
+    mounts.forEach((el) => observer.observe(el))
+    onCleanup(() => observer.disconnect())
+  })
+
   const mac = createMemo(() => platform.platform === "desktop" && platform.os === "macos")
   const windows = createMemo(() => platform.platform === "desktop" && platform.os === "windows")
   const electronWindows = createMemo(() => windows() && !tauriApi())
@@ -438,6 +461,9 @@ export function Titlebar(props: { update?: TitlebarUpdate; sizing?: Accessor<boo
           </div>
           </div>
           <div
+            ref={(element) => {
+              centerOverlayRef = element
+            }}
             class="pointer-events-none absolute inset-y-0 right-0 z-20 flex items-center"
             style={{ left: mac() ? `${-84 / zoom()}px` : 0 }}
           >

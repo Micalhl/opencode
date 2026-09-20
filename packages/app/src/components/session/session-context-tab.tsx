@@ -56,6 +56,20 @@ const ROLE_COLOR = {
 
 const PREVIEW_MAX = 100
 
+function partStartTime(part: Part) {
+  if (part.type === "text") return part.time?.start
+  if (part.type === "reasoning") return part.time.start
+  if (part.type !== "tool") return undefined
+  if (part.state.status === "pending") return undefined
+  return part.state.time.start
+}
+
+function partToolDuration(part: Part) {
+  if (part.type !== "tool") return 0
+  if (part.state.status !== "completed" && part.state.status !== "error") return 0
+  return Math.max(0, part.state.time.end - part.state.time.start)
+}
+
 function breakdownDetailLabel(
   detail: SessionContextBreakdownDetail,
   t: (key: string, vars?: Record<string, string>) => string,
@@ -691,6 +705,50 @@ export function SessionContextTab() {
     }
   })
 
+  // 会话累计 token：详情面板里的「Token 用量」，和只反映当前上下文的 ctx 合计不同。
+  // 存储侧的 tokens.input 只统计未命中缓存的输入，缓存读写单独累计。
+  const usageTotals = createMemo(() =>
+    messages().reduce(
+      (acc, message) => {
+        if (message.role !== "assistant") return acc
+        return {
+          input: acc.input + message.tokens.input,
+          output: acc.output + message.tokens.output,
+          cacheRead: acc.cacheRead + message.tokens.cache.read,
+          cacheWrite: acc.cacheWrite + message.tokens.cache.write,
+        }
+      },
+      { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+    ),
+  )
+
+  // 会话耗时：模型用时按消息持续时间累加，工具用时按工具部件累加，TTFT 取每条助手消息首个输出部件的开始时间。
+  const timing = createMemo(() => {
+    const parts = sync().data.part as Record<string, Part[] | undefined>
+    return messages().reduce<{ modelMs: number; toolMs: number; ttfts: number[] }>(
+      (acc, message) => {
+        if (message.role !== "assistant") return acc
+        const modelMs = message.time.completed
+          ? acc.modelMs + Math.max(0, message.time.completed - message.time.created)
+          : acc.modelMs
+        const messageParts = parts[message.id] ?? []
+        const toolMs = acc.toolMs + messageParts.reduce((sum, part) => sum + partToolDuration(part), 0)
+        const first = messageParts.reduce<number | undefined>((min, part) => {
+          const start = partStartTime(part)
+          if (start === undefined) return min
+          return min === undefined ? start : Math.min(min, start)
+        }, undefined)
+        const ttft = first === undefined ? undefined : Math.max(0, first - message.time.created)
+        return {
+          modelMs,
+          toolMs,
+          ttfts: ttft === undefined ? acc.ttfts : [...acc.ttfts, ttft],
+        }
+      },
+      { modelMs: 0, toolMs: 0, ttfts: [] },
+    )
+  })
+
   const systemPrompts = createMemo(() => systemPromptPreview() ?? fallbackSystemPrompts())
   const systemPrompt = createMemo(() => systemPrompts().join("\n"))
 
@@ -746,8 +804,71 @@ export function SessionContextTab() {
 
   const t = (key: string) => language.t(key as Parameters<typeof language.t>[0])
 
+  const duration = (ms: number | undefined) => {
+    if (ms === undefined) return "—"
+    const minutes = Math.floor(ms / 60000)
+    const hours = Math.floor(minutes / 60)
+    if (hours > 0) return translate("context.stats.duration.hours", { hours: String(hours), minutes: String(minutes % 60) })
+    if (minutes > 0)
+      return translate("context.stats.duration.minutes", {
+        minutes: String(minutes),
+        seconds: String(Math.round(ms / 1000) % 60),
+      })
+    if (ms < 1000) return translate("context.stats.duration.ms", { ms: String(Math.round(ms)) })
+    return translate("context.stats.duration.seconds", { seconds: String(Math.round(ms / 1000)) })
+  }
+
+  const averageTtft = () => {
+    const list = timing().ttfts
+    if (list.length === 0) return undefined
+    return list.reduce((sum, value) => sum + value, 0) / list.length
+  }
+
+  const tokensPerSecond = () => {
+    const ms = timing().modelMs
+    if (!ms) return undefined
+    return Math.round(usageTotals().output / (ms / 1000))
+  }
+
+  const cacheHitRate = () => {
+    const { input, cacheRead } = usageTotals()
+    if (input + cacheRead === 0) return undefined
+    return Number(((cacheRead / (input + cacheRead)) * 100).toFixed(1))
+  }
+
   const statGroups = () =>
     [
+      {
+        title: t("context.stats.group.sessionStats"),
+        rows: [
+          { label: t("context.stats.modelTime"), value: () => duration(timing().modelMs) },
+          { label: t("context.stats.toolTime"), value: () => duration(timing().toolMs) },
+          { label: t("context.stats.ttft"), value: () => duration(averageTtft()) },
+          {
+            label: t("context.stats.tps"),
+            value: () => {
+              const value = tokensPerSecond()
+              return value === undefined ? "—" : `${value.toLocaleString(language.intl())} tok/s`
+            },
+          },
+        ],
+      },
+      {
+        title: t("context.stats.group.tokenUsage"),
+        rows: [
+          {
+            label: t("context.stats.sessionTotal"),
+            value: () => {
+              const { input, output, cacheRead, cacheWrite } = usageTotals()
+              return formatter().number(input + output + cacheRead + cacheWrite)
+            },
+          },
+          { label: t("context.stats.cacheHit"), value: () => formatter().percent(cacheHitRate()) },
+          { label: t("context.stats.uncachedInput"), value: () => formatter().number(usageTotals().input) },
+          { label: t("context.stats.cacheRead"), value: () => formatter().number(usageTotals().cacheRead) },
+          { label: t("context.stats.output"), value: () => formatter().number(usageTotals().output) },
+        ],
+      },
       {
         title: t("context.stats.group.usage"),
         rows: [

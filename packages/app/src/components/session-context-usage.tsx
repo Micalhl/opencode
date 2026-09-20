@@ -3,6 +3,7 @@ import { ProgressCircle } from "@opencode-ai/ui/progress-circle"
 import { ProgressCircleV2 } from "@opencode-ai/ui/v2/progress-circle-v2"
 import { Button } from "@opencode-ai/ui/button"
 import { IconButtonV2 } from "@opencode-ai/ui/v2/icon-button-v2"
+import { TooltipV2 } from "@opencode-ai/ui/v2/tooltip-v2"
 import { Popover } from "@opencode-ai/ui/popover"
 import type { Part } from "@opencode-ai/sdk/v2/client"
 
@@ -165,10 +166,13 @@ export function SessionContextUsage(props: SessionContextUsageProps) {
     </div>
   )
 
+  const usageLabel = () => language.t("context.usage.popoverTitle", { percent: String(context()?.usage ?? 0) })
+
   return (
     <Show when={params.id}>
       <Show when={variant() !== "indicator"} fallback={circle()}>
-        <Switch>
+        <TooltipV2 value={usageLabel()} placement="top" inactive={open()}>
+          <Switch>
             <Match when={buttonAppearance() === "v2"}>
               <Popover
                 open={open()}
@@ -213,6 +217,7 @@ export function SessionContextUsage(props: SessionContextUsageProps) {
               </Popover>
             </Match>
           </Switch>
+        </TooltipV2>
       </Show>
     </Show>
   )
