@@ -73,6 +73,11 @@ html[data-theme="default"] [data-component="session-prompt-dock"] {
   padding-bottom: 20px;
 }
 
+/* Default 主题浅色：输入框要比背景更白，不能用暗色叠加出来的灰底。 */
+html[data-theme="default"][data-color-scheme="light"] [data-component="session-prompt-dock"] {
+  --prompt-shell-bg: #ffffff;
+}
+
 [data-component="session-prompt-dock"] [data-dock-surface="shell"] {
   background-color: var(--prompt-shell-bg);
 }
