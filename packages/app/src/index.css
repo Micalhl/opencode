@@ -19,6 +19,121 @@
   min-height: 0;
 }
 
+/* 侧栏背景：比主内容更浅的半透明磨砂面板，仅 Default 主题启用。
+   磨砂层用伪元素独立于内容，避免 backdrop-filter 成为拖拽浮层 fixed 定位的包含块。 */
+html[data-theme="default"] .sidebar-surface {
+  isolation: isolate;
+}
+
+html[data-theme="default"] .sidebar-surface::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-color: color-mix(in srgb, var(--background-base) 40%, transparent);
+  background-image: linear-gradient(
+    180deg,
+    color-mix(in srgb, white 5%, transparent),
+    color-mix(in srgb, white 1.5%, transparent) 46%,
+    color-mix(in srgb, white 3%, transparent)
+  );
+  backdrop-filter: blur(24px) saturate(150%);
+  box-shadow:
+    inset -1px 0 0 color-mix(in srgb, white 5%, transparent),
+    inset 0 1px 0 color-mix(in srgb, white 4%, transparent);
+}
+
+/* Default 主题：悬停/选中底色改成随明暗自适应的浅灰，避免在磨砂侧栏上叠出深色块。 */
+html[data-theme="default"] {
+  --surface-base-hover: color-mix(in srgb, var(--text-strong) 10%, transparent);
+  --surface-base-active: color-mix(in srgb, var(--text-strong) 14%, transparent);
+  --surface-raised-base-hover: color-mix(in srgb, var(--text-strong) 10%, transparent);
+  --surface-raised-base-active: color-mix(in srgb, var(--text-strong) 14%, transparent);
+}
+
+/* Default 主题：右侧内容面比窗口底色浅一档，会话区（background-stronger）与外壳同色，避免上下色差。 */
+html[data-theme="default"] {
+  --content-surface: color-mix(in srgb, var(--background-base) 94%, white 6%);
+  --background-stronger: var(--content-surface);
+}
+
+[data-component="content-surface"] {
+  background-color: var(--content-surface, var(--background-base));
+}
+
+/* Default 主题：输入框内部整体浅灰，遮罩渐变与底色同色，保证不出现分段色带。 */
+[data-component="session-prompt-dock"] {
+  --prompt-shell-bg: var(--surface-raised-stronger-non-alpha);
+}
+
+html[data-theme="default"] [data-component="session-prompt-dock"] {
+  --prompt-shell-bg: color-mix(in srgb, var(--text-strong) 8%, var(--background-stronger));
+  /* 输入框整体离窗口底部更远一些。 */
+  padding-bottom: 20px;
+}
+
+[data-component="session-prompt-dock"] [data-dock-surface="shell"] {
+  background-color: var(--prompt-shell-bg);
+}
+
+html[data-theme="default"] [data-component="session-prompt-dock"] [data-dock-surface="shell"] {
+  border-radius: 16px;
+}
+
+/* 标题栏里的会话标题：放在内容区左缘往里 24px、标题栏行内。 */
+[data-component="session-title-column"] {
+  padding-left: calc(var(--dialog-left-margin, 0px) + 24px);
+}
+
+/* Default 主题：用户消息气泡用浅灰底，和内容面区分开。 */
+html[data-theme="default"] [data-slot="user-message-text"] {
+  background: color-mix(in srgb, var(--text-strong) 8%, transparent);
+  border-radius: 12px;
+}
+
+/* Default 主题：输入框里的发送与用量按钮改成圆形，用量按钮加底色和更亮的圆环。 */
+html[data-theme="default"] [data-component="session-prompt-dock"] [data-action="prompt-submit"] {
+  border-radius: 9999px;
+}
+
+html[data-theme="default"] [data-component="session-prompt-dock"] [data-slot="context-usage"] {
+  border-radius: 9999px;
+  --progress-circle-background: color-mix(in srgb, var(--text-strong) 24%, transparent);
+  --progress-circle-progress: var(--text-strong);
+}
+
+/* macOS 原生磨砂窗口：仅 Default 主题把外壳交给窗口材质，侧栏玻璃才能透出桌面模糊。 */
+html[data-theme="default"][data-vibrancy="true"] {
+  background-color: transparent;
+}
+
+html[data-theme="default"][data-vibrancy="true"] [data-component="app-root"] {
+  background-color: transparent;
+}
+
+/* 侧栏标题（会话 / 项目）：悬停时若文本被截断，则横向滚动一次并停在末尾。 */
+@keyframes title-scroll {
+  0%,
+  12% {
+    transform: translateX(0);
+  }
+
+  100% {
+    transform: translateX(var(--title-scroll-shift, 0px));
+  }
+}
+
+[data-title-scroll][data-scrolling] > span {
+  animation: title-scroll var(--title-scroll-duration, 2400ms) linear 1 forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-title-scroll][data-scrolling] > span {
+    animation: none;
+  }
+}
+
 @font-face {
   font-family: "JetBrainsMono Nerd Font Mono";
   src: url("/assets/JetBrainsMonoNerdFontMono-Regular.woff2") format("woff2");

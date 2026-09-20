@@ -580,6 +580,7 @@ export const dict = {
   "context.usage.cacheHitRate": "快取命中率",
   "context.usage.cacheTokens": "快取 token（讀/寫）",
   "context.usage.clickToView": "點擊查看上下文",
+  "context.usage.popoverTitle": "上下文已用 {{percent}}%",
   "context.usage.view": "檢視上下文用量",
   "language.en": "English",
   "language.zh": "简体中文",

@@ -22,6 +22,7 @@ import { decode64 } from "@/utils/base64"
 import { useIsFetching } from "@tanstack/solid-query"
 import { Icon } from "@opencode-ai/ui/icon"
 import { IconButton } from "@opencode-ai/ui/icon-button"
+import { Tooltip } from "@opencode-ai/ui/tooltip"
 import { ResizeHandle } from "@opencode-ai/ui/resize-handle"
 import { Button } from "@opencode-ai/ui/button"
 import { Dialog } from "@opencode-ai/ui/dialog"
@@ -177,7 +178,7 @@ export default function LegacyLayout(props: ParentProps) {
   }
   const isBusy = (directory: string) => !!state.busyWorkspaces[pathKey(directory)]
   const sortNow = () => state.sortNow
-  // 各项目日期分组的展开 / 折叠命令是按项目独立的：平铺后每个项目有自己的分组列表。
+  // 各项目置顶分组的展开 / 折叠命令是按项目独立的：平铺后每个项目有自己的会话列表。
   const setTiledGroupsExpanded = (project: LocalProject, open: boolean) => {
     const key = pathKey(project.worktree)
     setState("tiledGroupsCommand", key, {
@@ -530,7 +531,7 @@ export default function LegacyLayout(props: ParentProps) {
     }
 
     return (
-      <section data-component="sidebar-chat" class="min-w-0 rounded-lg">
+      <section data-component="sidebar-chat" class="min-w-0">
         <div
           role="button"
           tabIndex={0}
@@ -543,21 +544,63 @@ export default function LegacyLayout(props: ParentProps) {
               handleClick()
             }
           }}
-          class="group/chat relative flex min-w-0 cursor-pointer items-center gap-1 rounded-lg px-2 py-1.5 transition-colors hover:bg-surface-raised-base-hover focus-visible:outline-none"
+          class="group/chat flex min-w-0 cursor-pointer items-center justify-between gap-2 pt-4 pb-2 focus-visible:outline-none"
         >
-          <Icon name="new-session" size="small" class="shrink-0 text-icon-base" />
-          <span class="min-w-0 flex-1 truncate text-14-medium text-text-strong">{language.t("sidebar.chat")}</span>
+          <span class="min-w-0 flex-1 truncate px-2 text-13-medium text-text-weaker">{language.t("sidebar.chat")}</span>
           <div
-            class="flex shrink-0 items-center"
+            class="flex shrink-0 items-center opacity-0 transition-opacity duration-150 pointer-events-none group-hover/chat:opacity-100 group-hover/chat:pointer-events-auto group-focus-within/chat:opacity-100 group-focus-within/chat:pointer-events-auto"
             onClick={(event) => event.stopPropagation()}
             onKeyDown={(event) => event.stopPropagation()}
           >
-            <Show when={hasSessions()}>
+            <Tooltip placement={props.mobile ? "bottom" : "right"} value={language.t("home.sessions.search.placeholder")}>
+              <IconButton
+                icon="magnifying-glass"
+                variant="ghost"
+                size="small"
+                data-action="chat-session-search-open"
+                aria-label={language.t("home.sessions.search.placeholder")}
+                onClick={(event) => {
+                  event.preventDefault()
+                  event.stopPropagation()
+                  dialog.show(() => <DialogSessionSearch directory={chatDirectory()} />)
+                }}
+              />
+            </Tooltip>
+            <Tooltip placement={props.mobile ? "bottom" : "right"} value={language.t("home.sessions.group.expandAll")}>
+              <IconButton
+                icon="expand"
+                variant="ghost"
+                size="small"
+                classList={{ "pointer-events-none opacity-40": !hasSessions() }}
+                data-action="chat-expand-all"
+                aria-label={language.t("home.sessions.group.expandAll")}
+                onClick={(event) => {
+                  event.preventDefault()
+                  event.stopPropagation()
+                  setStore("chatExpanded", true)
+                }}
+              />
+            </Tooltip>
+            <Tooltip placement={props.mobile ? "bottom" : "right"} value={language.t("home.sessions.group.collapseAll")}>
+              <IconButton
+                icon="collapse"
+                variant="ghost"
+                size="small"
+                classList={{ "pointer-events-none opacity-40": !hasSessions() }}
+                data-action="chat-collapse-all"
+                aria-label={language.t("home.sessions.group.collapseAll")}
+                onClick={(event) => {
+                  event.preventDefault()
+                  event.stopPropagation()
+                  setStore("chatExpanded", false)
+                }}
+              />
+            </Tooltip>
+            <Tooltip placement={props.mobile ? "bottom" : "right"} value={language.t("sidebar.chat.new")}>
               <IconButton
                 icon="plus"
                 variant="ghost"
                 size="small"
-                class="size-6 rounded-md opacity-0 transition-opacity duration-150 pointer-events-none group-hover/chat:opacity-100 group-hover/chat:pointer-events-auto group-focus-within/chat:opacity-100 group-focus-within/chat:pointer-events-auto"
                 data-action="chat-new-session"
                 aria-label={language.t("sidebar.chat.new")}
                 onClick={(event) => {
@@ -566,12 +609,12 @@ export default function LegacyLayout(props: ParentProps) {
                   newChat()
                 }}
               />
-            </Show>
+            </Tooltip>
           </div>
         </div>
 
         <Show when={showList()}>
-          <div class="min-w-0 pt-1 pb-1 pl-4 pr-1">
+          <div class="min-w-0 pt-1 pb-1 pl-2 pr-2">
             <WorkspaceSessionList
               slug={() => chatSlug()}
               mobile={props.mobile}
@@ -1810,6 +1853,8 @@ export default function LegacyLayout(props: ParentProps) {
   })
 
   const side = createMemo(() => Math.max(layout.sidebar.width(), 244))
+  // 磨砂玻璃 / 页面外壳融合效果只属于 Default 主题。
+  const glassTheme = createMemo(() => theme.themeId() === "default")
 
   const loadedSessionDirs = new Set<string>()
 
@@ -2097,7 +2142,7 @@ export default function LegacyLayout(props: ParentProps) {
       mobile={mobile}
       projects={projects}
       renderProjectSection={(project) => {
-        // 各项目用自己的分组命令覆盖全局 ctx，行内的展开 / 折叠只影响自己项目的日期分组。
+        // 各项目用自己的分组命令覆盖全局 ctx，行内的展开 / 折叠只影响自己项目的置顶分组。
         const sectionCtx: WorkspaceSidebarContext = {
           ...workspaceSidebarCtx,
           sessionGroupsCommand: () => state.tiledGroupsCommand[pathKey(project.worktree)],
@@ -2152,12 +2197,31 @@ export default function LegacyLayout(props: ParentProps) {
   )
 
   return (
-    <div class="relative bg-background-base flex-1 min-h-0 min-w-0 flex flex-col select-none [&_input]:select-text [&_textarea]:select-text [&_[contenteditable]]:select-text">
-      <Titlebar />
+    <div
+      data-component="app-root"
+      class="relative bg-background-base flex-1 min-h-0 min-w-0 flex flex-col select-none [&_input]:select-text [&_textarea]:select-text [&_[contenteditable]]:select-text"
+    >
+      <Titlebar sizing={() => state.sizing} />
       <div class="flex-1 min-h-0 min-w-0 flex">
         <div class="flex-1 min-h-0 relative">
-          <div class="size-full relative overflow-x-hidden">
+          <div class="size-full relative overflow-x-clip">
             <Show when={isDesktop()}>
+              <Show when={glassTheme()}>
+                {/* 侧栏面板比内容面宽出一段，垫在内容圆角下面，避免圆角缺口露出没有玻璃的窗口材质。 */}
+                <div
+                  aria-hidden="true"
+                  class="sidebar-surface pointer-events-none absolute left-0 z-10"
+                  classList={{
+                    "transition-[width] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none":
+                      !state.sizing,
+                  }}
+                  style={{
+                    top: "calc(-1 * var(--titlebar-height, 2.5rem))",
+                    bottom: 0,
+                    width: layout.sidebar.opened() ? `calc(${side()}px + 16px)` : "0px",
+                  }}
+                />
+              </Show>
               <nav
                 aria-label={language.t("sidebar.nav.projectsAndSessions")}
                 data-component="sidebar-nav-desktop"
@@ -2165,14 +2229,27 @@ export default function LegacyLayout(props: ParentProps) {
                   desktopSidebar = element
                 }}
                 classList={{
-                  "absolute inset-y-0 left-0": true,
+                  "absolute left-0": true,
                   // Above main (z-20): otherwise the content pane can steal clicks on the session list.
                   "z-30": true,
                   "overflow-hidden": true,
+                  // 非 Default 主题保持原来的不透明侧栏，不向上延伸到标题栏。
+                  "inset-y-0": !glassTheme(),
+                  "bg-background-base": !glassTheme(),
                 }}
+                style={
+                  glassTheme() ? { top: "calc(-1 * var(--titlebar-height, 2.5rem))", bottom: 0 } : undefined
+                }
               >
-                {/* 内容宽度钉在最小侧栏宽，折叠动画靠外层 overflow-hidden 裁切，避免内容被压扁变形。 */}
-                <div class="@container h-full contain-strict" style={{ width: `${side()}px` }}>
+                {/* 内容宽度钉在最小侧栏宽，折叠动画靠外层 overflow-hidden 裁切，避免内容被压扁变形。
+                    面板向上延伸到窗口顶部垫在标题栏下方，内容用 padding 让回标题栏高度。 */}
+                <div
+                  class="@container h-full contain-strict"
+                  style={{
+                    width: `${side()}px`,
+                    "padding-top": glassTheme() ? "var(--titlebar-height, 2.5rem)" : undefined,
+                  }}
+                >
                   {sidebarContent()}
                 </div>
               </nav>
@@ -2215,7 +2292,9 @@ export default function LegacyLayout(props: ParentProps) {
                 aria-label={language.t("sidebar.nav.projectsAndSessions")}
                 data-component="sidebar-nav-mobile"
                 classList={{
-                  "@container fixed top-10 bottom-0 left-0 z-50 w-full max-w-[400px] overflow-hidden border-r border-border-weaker-base bg-background-base transition-transform duration-200 ease-out": true,
+                  "@container fixed top-10 bottom-0 left-0 z-50 w-full max-w-[400px] overflow-hidden border-r border-border-weaker-base transition-transform duration-200 ease-out": true,
+                  "sidebar-surface": true,
+                  "bg-background-base": !glassTheme(),
                   "translate-x-0": layout.mobileSidebar.opened(),
                   "-translate-x-full": !layout.mobileSidebar.opened(),
                 }}
@@ -2242,8 +2321,11 @@ export default function LegacyLayout(props: ParentProps) {
               }}
             >
               <main
+                data-component="content-surface"
                 classList={{
-                  "size-full overflow-x-hidden flex flex-col items-start contain-strict rounded-tl-[12px] bg-background-base": true,
+                  "size-full overflow-x-hidden flex flex-col items-start contain-strict bg-background-base": true,
+                  // Default 主题下桌面端内容面与标题栏底连成一块，圆角交给标题栏图层，避免中间出现台阶。
+                  "rounded-tl-[12px]": !isDesktop() || !glassTheme(),
                 }}
               >
                 <Show when={!autoselecting.loading} fallback={<div class="size-full" />}>

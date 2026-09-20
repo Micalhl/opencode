@@ -367,7 +367,7 @@ export function SessionHeader() {
                     </Show>
                   </div>
                 </Show>
-                <div class="flex items-center gap-1">
+                <div class="flex items-center gap-2">
                   <Tooltip placement="bottom" value={language.t("status.popover.trigger")}>
                     <StatusPopover />
                   </Tooltip>

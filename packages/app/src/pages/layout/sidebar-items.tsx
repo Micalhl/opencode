@@ -4,7 +4,7 @@ import { IconButton } from "@opencode-ai/ui/icon-button"
 import { Spinner } from "@opencode-ai/ui/spinner"
 import { Tooltip } from "@opencode-ai/ui/tooltip"
 import { A, useNavigate, useParams } from "@solidjs/router"
-import { type Accessor, createMemo, For, type JSX, Match, Show, Switch } from "solid-js"
+import { type Accessor, createEffect, createMemo, For, type JSX, Match, on, Show, Switch } from "solid-js"
 import { useServerSync } from "@/context/server-sync"
 import { useLanguage } from "@/context/language"
 import { useLayout } from "@/context/layout"
@@ -14,6 +14,7 @@ import { isSessionPinned, toggleSessionPin } from "@/utils/session-pin"
 import { sessionTitle } from "@/utils/session-title"
 import { sessionPermissionRequest } from "../session/composer/session-request-tree"
 import { sidebarChildSessions } from "./helpers"
+import { createTitleScroll } from "./title-scroll"
 
 export type SessionItemProps = {
   session: Session
@@ -39,18 +40,24 @@ const SessionRow = (props: {
   tint: Accessor<string | undefined>
   isWorking: Accessor<boolean>
   hasPermissions: Accessor<boolean>
+  tooltip: Accessor<boolean>
   warmPress: () => void
   warmFocus: () => void
 }): JSX.Element => {
   const navigate = useNavigate()
   const title = () => sessionTitle(props.session.title)
   const showLeading = () => props.isWorking() || props.hasPermissions()
+  const titleScroll = createTitleScroll({ enabled: () => !props.tooltip() })
+
+  createEffect(on(title, titleScroll.stop, { defer: true }))
 
   return (
     <A
       href={`/${props.slug}/session/${props.session.id}`}
-      class={`flex items-center gap-2 min-w-0 w-full text-left focus:outline-none ${props.dense ? "py-0.5" : "py-1"}`}
+      class={`flex items-center gap-2 min-w-0 w-full text-left focus:outline-none ${props.dense ? "py-px" : "py-0.5"}`}
       onPointerDown={props.warmPress}
+      onPointerEnter={titleScroll.start}
+      onPointerLeave={titleScroll.stop}
       onFocus={props.warmFocus}
       onClick={(event) => {
         // Force route change even if a parent layer ate the default <A> navigation.
@@ -83,7 +90,20 @@ const SessionRow = (props: {
           </Switch>
         </div>
       </Show>
-      <span class="min-w-0 flex-1 truncate text-text-strong text-14-regular">{title()}</span>
+      <span
+        ref={titleScroll.setWrap}
+        data-title-scroll
+        data-scrolling={titleScroll.scrolling() ? "true" : undefined}
+        class="min-w-0 flex-1 overflow-hidden text-text-strong text-14-regular"
+      >
+        <span
+          ref={titleScroll.setInner}
+          class="block whitespace-nowrap"
+          classList={{ truncate: !titleScroll.hovering(), "w-max": titleScroll.hovering() }}
+        >
+          {title()}
+        </span>
+      </span>
     </A>
   )
 }
@@ -152,6 +172,7 @@ export const SessionItem = (props: SessionItemProps): JSX.Element => {
       tint={tint}
       isWorking={isWorking}
       hasPermissions={hasPermissions}
+      tooltip={tooltip}
       warmPress={() => warm(2, "high")}
       warmFocus={() => warm(2, "high")}
     />
@@ -161,8 +182,8 @@ export const SessionItem = (props: SessionItemProps): JSX.Element => {
     <div
       data-session-id={props.session.id}
       data-pinned={pinned() ? "true" : undefined}
-      class="group/session relative w-full min-w-0 rounded-md cursor-default pr-3 transition-colors hover:bg-surface-raised-base-hover [&:has(:focus-visible)]:bg-surface-raised-base-hover has-[[data-expanded]]:bg-surface-raised-base-hover has-[.active]:bg-surface-base-active"
-      style={{ "padding-left": `${8 + (props.level ?? 0) * 16}px` }}
+      class="group/session relative w-full min-w-0 rounded-[10px] cursor-default pr-3 transition-colors hover:bg-surface-raised-base-hover [&:has(:focus-visible)]:bg-surface-raised-base-hover has-[[data-expanded]]:bg-surface-raised-base-hover has-[.active]:bg-surface-base-active"
+      style={{ "padding-left": `${24 + (props.level ?? 0) * 16}px` }}
     >
       <div class="flex min-w-0 items-center gap-1">
         <div class="min-w-0 flex-1">

@@ -41,10 +41,7 @@ export const SidebarContent = (props: {
 }): JSX.Element => {
   const placement = () => (props.mobile ? "bottom" : "right")
   return (
-    <div class="flex h-full w-full min-w-0 flex-col overflow-hidden bg-background-base">
-      {/* 聊天区在项目拖拽排序容器之外渲染，避免展开/收起触发项目排序引擎的 layout 测量。 */}
-      <Show when={props.renderChat}>{(render) => <div class="flex shrink-0 flex-col px-2 pt-3">{render()()}</div>}</Show>
-
+    <div class="flex h-full w-full min-w-0 flex-col overflow-hidden">
       <div class="group/sidebar-top flex shrink-0 items-center justify-between gap-2 px-3 pt-4 pb-2">
         <span class="min-w-0 flex-1 truncate px-2 text-13-medium text-text-weaker">{props.headerTitle}</span>
         <div class="flex shrink-0 items-center opacity-0 transition-opacity duration-150 pointer-events-none group-hover/sidebar-top:opacity-100 group-hover/sidebar-top:pointer-events-auto group-focus-within/sidebar-top:opacity-100 group-focus-within/sidebar-top:pointer-events-auto">
@@ -94,7 +91,7 @@ export const SidebarContent = (props: {
       <div
         ref={(el) => props.setScrollRef(el)}
         data-component="sidebar-projects-scroll"
-        class="flex-1 min-h-0 overflow-y-auto px-2 pb-2 no-scrollbar [overflow-anchor:none]"
+        class="flex-1 min-h-0 overflow-y-auto px-3 pb-2 no-scrollbar [overflow-anchor:none]"
       >
         <DragDropProvider
           onDragStart={props.handleDragStart}
@@ -112,6 +109,8 @@ export const SidebarContent = (props: {
           <DragOverlay>{props.renderProjectOverlay()}</DragOverlay>
         </DragDropProvider>
         <Show when={props.projects().length === 0}>{props.renderEmpty()}</Show>
+        {/* 聊天区跟在项目列表后面（不参与项目拖拽排序容器）。 */}
+        <Show when={props.renderChat}>{(render) => <div class="flex flex-col px-0 pt-2">{render()()}</div>}</Show>
         {props.renderGettingStarted()}
       </div>
 

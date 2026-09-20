@@ -12,7 +12,7 @@ import { sortedRootSessions, displayName } from "@/pages/layout/helpers"
 import { pinnedSessionIds } from "@/utils/session-pin"
 import type { Session } from "@opencode-ai/sdk/v2/client"
 
-export function DialogSessionSearch() {
+export function DialogSessionSearch(props: { directory?: string } = {}) {
   const language = useLanguage()
   const dialog = useDialog()
   const navigate = useNavigate()
@@ -23,6 +23,16 @@ export function DialogSessionSearch() {
   const allSessions = createMemo(() => {
     const now = Date.now()
     const result: Array<{ session: Session; project: string }> = []
+
+    // 指定目录时只搜该目录（聊天分区），否则搜所有项目。
+    if (props.directory) {
+      const [store] = serverSync().child(props.directory, { bootstrap: true })
+      for (const session of sortedRootSessions(store, now, pinnedSessionIds(props.directory))) {
+        result.push({ session, project: "" })
+      }
+      return result.sort((a, b) => (b.session.time.updated ?? b.session.time.created) - (a.session.time.updated ?? a.session.time.created))
+    }
+
     for (const project of layout.projects.list()) {
       const [store] = serverSync().child(project.worktree, { bootstrap: false })
       const sessions = sortedRootSessions(store, now, pinnedSessionIds(project.worktree))
@@ -64,7 +74,9 @@ export function DialogSessionSearch() {
             <span class="min-w-0 flex-1 truncate text-14-medium text-text-strong">
               {sessionTitle(session.title)}
             </span>
-            <span class="shrink-0 truncate text-12-regular text-text-weaker">{project}</span>
+            <Show when={project}>
+              <span class="shrink-0 truncate text-12-regular text-text-weaker">{project}</span>
+            </Show>
           </div>
         )}
       </List>

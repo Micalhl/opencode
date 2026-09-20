@@ -40,6 +40,7 @@ export {
   DEFAULT_THEMES,
   amoledTheme,
   cursorTheme,
+  defaultTheme,
   opencodeTheme,
   orngTheme,
   vercelTheme,

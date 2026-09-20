@@ -73,10 +73,19 @@ export function setAppQuitting(quitting = true) {
 
 export function setBackgroundColor(color: string) {
   backgroundColor = color
-  BrowserWindow.getAllWindows().forEach((win) => {
-    win.setBackgroundColor(color)
-    if (process.platform === "darwin") win.invalidateShadow()
-  })
+  BrowserWindow.getAllWindows().forEach((win) => applyWindowBackdrop(win))
+}
+
+// macOS 用原生磨砂材质透出桌面；全屏时没有桌面可透，回退到主题底色。
+function applyWindowBackdrop(win: BrowserWindow) {
+  if (process.platform !== "darwin") {
+    win.setBackgroundColor(backgroundColor ?? defaultBackgroundColor())
+    return
+  }
+  const fullScreen = win.isFullScreen()
+  win.setVibrancy(fullScreen ? null : "sidebar")
+  win.setBackgroundColor(fullScreen ? (backgroundColor ?? defaultBackgroundColor()) : "#00000000")
+  win.invalidateShadow()
 }
 
 export function getBackgroundColor(): string | undefined {
@@ -181,11 +190,16 @@ export function createMainWindow(id: string = randomUUID()) {
     autoHideMenuBar: true,
     title: "OpenCode",
     icon: iconPath(),
-    backgroundColor: backgroundColor ?? defaultBackgroundColor(),
+    backgroundColor: process.platform === "darwin" ? "#00000000" : (backgroundColor ?? defaultBackgroundColor()),
     ...(process.platform === "darwin"
       ? {
           titleBarStyle: "hidden" as const,
-          trafficLightPosition: { x: 14, y: 14 },
+          trafficLightPosition: { x: 20, y: 20 },
+          vibrancy: "sidebar" as const,
+          visualEffectState: "followWindow" as const,
+          // 原生磨砂要求窗口自身非不透明，否则材质后面仍会被窗口底色盖住。
+          transparent: true,
+          hasShadow: true,
         }
       : {}),
     ...(process.platform === "win32"
@@ -222,6 +236,10 @@ export function createMainWindow(id: string = randomUUID()) {
   registerWindow(win, id)
   loadWindow(win, "index.html")
   wireZoom(win)
+  if (process.platform === "darwin") {
+    win.on("enter-full-screen", () => applyWindowBackdrop(win))
+    win.on("leave-full-screen", () => applyWindowBackdrop(win))
+  }
 
   win.once("ready-to-show", () => {
     win.show()

@@ -619,6 +619,7 @@ export const dict = {
   "context.usage.cacheHitRate": "Cache Hit",
   "context.usage.cacheTokens": "Cache Tokens (r/w)",
   "context.usage.clickToView": "Click to view context",
+  "context.usage.popoverTitle": "Context used {{percent}}%",
   "context.usage.view": "View context usage",
 
   "language.en": "English",

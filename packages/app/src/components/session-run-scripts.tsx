@@ -64,7 +64,7 @@ export function SessionRunScripts() {
         as={IconButton}
         icon="console"
         variant="ghost"
-        class="size-6 rounded-md data-[expanded]:bg-surface-base-active"
+        class="titlebar-icon w-8 h-6 p-0 box-border rounded-md data-[expanded]:bg-surface-base-active"
         aria-label={language.t("session.header.run")}
         onClick={() => void commandsControl.refetch()}
       />

@@ -256,9 +256,6 @@ export const WorkspaceSessionList = (props: {
 }): JSX.Element => {
   const params = useParams()
   const language = useLanguage()
-  const dateFormatter = createMemo(
-    () => new Intl.DateTimeFormat(language.intl(), { weekday: "short", month: "short", day: "numeric", year: "numeric" }),
-  )
   const [groupOpen, setGroupOpen] = createStore<Record<string, boolean>>({})
   // 挂载时记录当前命令版本，避免把挂载前的一次性折叠/展开命令重复套用到新列表上。
   const initialCommand = props.ctx.sessionGroupsCommand()
@@ -270,54 +267,24 @@ export const WorkspaceSessionList = (props: {
     setGroupOpen(group.key, open)
   }
 
-  const groups = createMemo(() => {
-    const groups: SessionGroup[] = []
-    // 置顶会话集中在最前的“置顶”分组，跟时间分区走同一条渲染路径。
-    const pinned = props.sessions().filter((session) => isSessionPinned(session.directory, session.id))
-    if (pinned.length > 0) {
-      groups.push({
+  const pinnedSessions = createMemo(() =>
+    props.sessions().filter((session) => isSessionPinned(session.directory, session.id)),
+  )
+  const unpinnedSessions = createMemo(() =>
+    props.sessions().filter((session) => !isSessionPinned(session.directory, session.id)),
+  )
+  // 置顶会话单独成组，其余会话按最近更新平铺展示，不再做时间分区。
+  const groups = createMemo((): SessionGroup[] => {
+    if (pinnedSessions().length === 0) return []
+    return [
+      {
         key: "pinned",
         label: language.t("home.sessions.group.pinned"),
-        sessions: pinned,
+        sessions: pinnedSessions(),
         collapsible: true,
         defaultOpen: true,
-      })
-    }
-
-    const now = new Date()
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
-    const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1).getTime()
-    const sevenDaysAgo = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7).getTime()
-    props
-      .sessions()
-      .filter((session) => !isSessionPinned(session.directory, session.id))
-      .forEach((session) => {
-        const date = new Date(session.time.updated ?? session.time.created)
-        const day = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime()
-        const older = day <= sevenDaysAgo
-        const key = older ? "older" : String(day)
-        const label =
-          older
-            ? language.t("home.sessions.group.sevenDaysAgo")
-            : day === today
-              ? language.t("home.sessions.group.today")
-              : day === yesterday
-                ? language.t("home.sessions.group.yesterday")
-                : dateFormatter().format(date)
-        const group = groups.at(-1)
-        if (group?.key === key) {
-          group.sessions.push(session)
-          return
-        }
-        groups.push({
-          key,
-          label,
-          sessions: [session],
-          collapsible: true,
-          defaultOpen: !groups.some((item) => item.collapsible),
-        })
-      })
-    return groups
+      },
+    ]
   })
   createEffect(() => {
     const command = props.ctx.sessionGroupsCommand()
@@ -402,41 +369,44 @@ export const WorkspaceSessionList = (props: {
         fallback={sessionItems(props.sessions())}
       >
         <Show when={props.flat} fallback={
-          <For each={groups()}>
-            {(group) => (
-              <div class="mt-0.5 flex flex-col gap-0.5 first:mt-0">
-                <div
-                  role="button"
-                  tabIndex={0}
-                  aria-expanded={isGroupOpen(group)}
-                  onClick={() => setGroupExpanded(group, !isGroupOpen(group))}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" || event.key === " ") {
-                      event.preventDefault()
-                      setGroupExpanded(group, !isGroupOpen(group))
-                    }
-                  }}
-                  class="flex h-7 cursor-pointer items-center justify-between px-2 text-text-weak hover:text-text-base focus-visible:outline-none focus-visible:bg-surface-raised-base-hover"
-                >
-                  <span>{group.label}</span>
-                  <span class="flex items-center gap-1">
-                    <span class="text-11-regular text-text-weaker">{group.sessions.length}</span>
-                    <Icon
-                      name="chevron-down"
-                      size="small"
-                      class="shrink-0 text-icon-weaker transition-transform duration-150"
-                      classList={{ "rotate-180": !isGroupOpen(group) }}
-                    />
-                  </span>
-                </div>
-                <div class="sidebar-reveal" data-open={isGroupOpen(group) ? "" : undefined}>
-                  <div class="sidebar-reveal-inner">
-                    {sessionItems(group.sessions)}
+          <>
+            <For each={groups()}>
+              {(group) => (
+                <div class="mt-0.5 flex flex-col gap-0.5 first:mt-0">
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    aria-expanded={isGroupOpen(group)}
+                    onClick={() => setGroupExpanded(group, !isGroupOpen(group))}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault()
+                        setGroupExpanded(group, !isGroupOpen(group))
+                      }
+                    }}
+                    class="flex h-7 cursor-pointer items-center justify-between px-2 text-text-weak hover:text-text-base focus-visible:outline-none focus-visible:bg-surface-raised-base-hover"
+                  >
+                    <span>{group.label}</span>
+                    <span class="flex items-center gap-1">
+                      <span class="text-11-regular text-text-weaker">{group.sessions.length}</span>
+                      <Icon
+                        name="chevron-down"
+                        size="small"
+                        class="shrink-0 text-icon-weaker transition-transform duration-150"
+                        classList={{ "rotate-180": !isGroupOpen(group) }}
+                      />
+                    </span>
+                  </div>
+                  <div class="sidebar-reveal" data-open={isGroupOpen(group) ? "" : undefined}>
+                    <div class="sidebar-reveal-inner">
+                      {sessionItems(group.sessions)}
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
-          </For>
+              )}
+            </For>
+            {sessionItems(unpinnedSessions())}
+          </>
         }>
           {sessionItems(props.sessions())}
         </Show>

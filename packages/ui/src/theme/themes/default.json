@@ -1,0 +1,71 @@
+{
+  "$schema": "https://opencode.ai/desktop-theme.json",
+  "name": "Default",
+  "id": "default",
+  "light": {
+    "palette": {
+      "neutral": "#F0F0F0",
+      "ink": "#101010",
+      "primary": "#FFC799",
+      "accent": "#B30000",
+      "success": "#99FFE4",
+      "warning": "#FFC799",
+      "error": "#FF8080",
+      "info": "#FFC799",
+      "diffAdd": "#99FFE4",
+      "diffDelete": "#FF8080"
+    },
+    "overrides": {
+      "syntax-comment": "#7a7a7a",
+      "syntax-keyword": "#6e6e6e",
+      "syntax-string": "#117e69",
+      "syntax-primitive": "#8d541c",
+      "syntax-property": "#101010",
+      "syntax-type": "#8d541c",
+      "syntax-constant": "#8d541c"
+    }
+  },
+  "dark": {
+    "palette": {
+      "neutral": "#181818",
+      "ink": "#e4e4e4",
+      "primary": "#88c0d0",
+      "accent": "#88c0d0",
+      "success": "#3fa266",
+      "warning": "#f1b467",
+      "error": "#e34671",
+      "info": "#81a1c1",
+      "interactive": "#82D2CE",
+      "diffAdd": "#70b489",
+      "diffDelete": "#fc6b83"
+    },
+    "overrides": {
+      "text-weak": "#e4e4e45e",
+      "syntax-comment": "#e4e4e45e",
+      "syntax-keyword": "#82D2CE",
+      "syntax-string": "#E394DC",
+      "syntax-primitive": "#EFB080",
+      "syntax-variable": "#e4e4e4",
+      "syntax-property": "#81a1c1",
+      "syntax-type": "#EFB080",
+      "syntax-constant": "#F8C762",
+      "syntax-operator": "#e4e4e4",
+      "syntax-punctuation": "#e4e4e4",
+      "syntax-object": "#e4e4e4",
+      "markdown-heading": "#AAA0FA",
+      "markdown-text": "#e4e4e4",
+      "markdown-link": "#82D2CE",
+      "markdown-link-text": "#81a1c1",
+      "markdown-code": "#E394DC",
+      "markdown-block-quote": "#e4e4e45e",
+      "markdown-emph": "#82D2CE",
+      "markdown-strong": "#F8C762",
+      "markdown-horizontal-rule": "#e4e4e45e",
+      "markdown-list-item": "#e4e4e4",
+      "markdown-list-enumeration": "#88c0d0",
+      "markdown-image": "#88c0d0",
+      "markdown-image-text": "#81a1c1",
+      "markdown-code-block": "#e4e4e4"
+    }
+  }
+}

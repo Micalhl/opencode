@@ -47,6 +47,7 @@ function knownThemes() {
 const names: Record<string, string> = {
   amoled: "AMOLED",
   cursor: "Cursor",
+  default: "Default",
   opencode: "OpenCode",
   orng: "Orng",
   vercel: "Vercel",
@@ -122,7 +123,14 @@ function applyThemeCss(theme: DesktopTheme, themeId: string, mode: "light" | "da
   ensureThemeStyleElement().textContent = fullCss
   document.documentElement.dataset.theme = themeId
   document.documentElement.dataset.colorScheme = mode
-  document.documentElement.style.backgroundColor = isDark ? "#080808" : "#fafafa"
+  // 桌面端原生磨砂窗口仅在 Default 主题下需要透明底色；其他主题恢复不透明外壳覆盖窗口材质。
+  const vibrancyChrome =
+    document.documentElement.dataset.vibrancy === "true" && document.documentElement.dataset.theme === "default"
+  if (vibrancyChrome) {
+    document.documentElement.style.removeProperty("background-color")
+  } else {
+    document.documentElement.style.backgroundColor = isDark ? "#080808" : "#fafafa"
+  }
 
   // Update theme-color meta tag to match light/dark mode
   const meta = document.querySelector('meta[name="theme-color"]')

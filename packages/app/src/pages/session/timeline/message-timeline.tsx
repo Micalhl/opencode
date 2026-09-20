@@ -12,7 +12,7 @@
   type JSX,
 } from "solid-js"
 import { createStore, produce } from "solid-js/store"
-import { Dynamic } from "solid-js/web"
+import { Dynamic, Portal } from "solid-js/web"
 import { useNavigate } from "@solidjs/router"
 import { useMutation } from "@tanstack/solid-query"
 import { createVirtualizer, defaultRangeExtractor, elementScroll, type VirtualItem } from "@tanstack/solid-virtual"
@@ -59,7 +59,6 @@ import { getDirectory, getFilename } from "@opencode-ai/core/util/path"
 import { normalize } from "@opencode-ai/session-ui/session-diff"
 import { useFileComponent } from "@opencode-ai/ui/context/file"
 import { shouldMarkBoundaryGesture, normalizeWheelDelta } from "@/pages/session/message-gesture"
-import { SessionContextUsage } from "@/components/session-context-usage"
 import { SessionRunScripts } from "@/components/session-run-scripts"
 import { exportFull, exportLastRequest, exportLastResponse, exportSummary, exportTransfer } from "./session-export"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
@@ -69,6 +68,8 @@ import { useServerSDK } from "@/context/server-sdk"
 import { useServerSync } from "@/context/server-sync"
 import { useServer } from "@/context/server"
 import { usePlatform } from "@/context/platform"
+import { useLayout } from "@/context/layout"
+import { useTitlebarCenterMount, useTitlebarSessionActionsMount } from "@/components/titlebar"
 import { useSettings } from "@/context/settings"
 import { useTabs } from "@/context/tabs"
 import { legacySessionHref, requireServerKey, sessionHref } from "@/utils/session-route"
@@ -341,6 +342,9 @@ export function MessageTimeline(props: {
   const initialMeasurements = cached?.measurements
   const coldBottomMount = !initialMeasurements?.length && props.shouldAnchorBottom()
   const platform = usePlatform()
+  const layout = useLayout()
+  const titlebarCenterMount = useTitlebarCenterMount()
+  const sessionActionsMount = useTitlebarSessionActionsMount()
 
   const [listRoot, setListRoot] = createSignal<HTMLDivElement>()
   const sessionID = createMemo(() => params.id)
@@ -704,6 +708,7 @@ export function MessageTimeline(props: {
     menuOpen: false,
     pendingRename: false,
     simulatingOverflow: false,
+    width: undefined as number | undefined,
   })
   let titleRef: HTMLInputElement | undefined
 
@@ -912,9 +917,14 @@ export function MessageTimeline(props: {
     ),
   )
 
-  const openTitleEditor = () => {
+  const openTitleEditor = (event?: MouseEvent) => {
     if (!sessionID() || parentID()) return
-    setTitle({ editing: true, draft: titleLabel() ?? "" })
+    const target = event?.currentTarget
+    setTitle({
+      editing: true,
+      draft: titleLabel() ?? "",
+      width: target instanceof HTMLElement ? Math.ceil(target.getBoundingClientRect().width) : undefined,
+    })
     requestAnimationFrame(() => {
       if (!titleRef) return
       titleRef.focus()
@@ -1595,139 +1605,12 @@ export function MessageTimeline(props: {
     )
   }
 
-  return (
-    <div class="relative w-full h-full min-w-0">
-      <div
-        class="absolute left-1/2 -translate-x-1/2 z-[60] pointer-events-none transition-all duration-200 ease-out"
-        classList={{
-          "bottom-6": true,
-          "opacity-100 translate-y-0 scale-100": props.scroll.overflow && props.scroll.jump,
-          "opacity-0 translate-y-2 pointer-events-none": !props.scroll.overflow || !props.scroll.jump,
-          "scale-95": !props.scroll.overflow || !props.scroll.jump,
-        }}
-      >
-        <button
-          type="button"
-          aria-label={language.t("session.messages.jumpToLatest")}
-          class="pointer-events-auto flex items-center justify-center w-10 h-8 bg-transparent border-none cursor-pointer p-0 group"
-          onClick={props.onResumeScroll}
-        >
-          <div
-            class="flex items-center justify-center w-8 h-6 rounded-[6px] border border-border-weaker-base bg-[color-mix(in_srgb,var(--surface-raised-stronger-non-alpha)_80%,transparent)] backdrop-blur-[0.75px] transition-colors group-hover:border-[var(--border-weak-base)] group-hover:[--icon-base:var(--icon-hover)]"
-            style={{
-              "box-shadow":
-                "0 51px 60px 0 rgba(0,0,0,0.10), 0 15px 18px 0 rgba(0,0,0,0.12), 0 6.386px 7.513px 0 rgba(0,0,0,0.12), 0 2.31px 2.717px 0 rgba(0,0,0,0.20)",
-            }}
-          >
-            <Icon name="arrow-down-to-line" size="small" />
-          </div>
-        </button>
-      </div>
-      <ScrollView
-        viewportRef={bindListRoot}
-        onWheel={handleListWheel}
-        onTouchStart={handleListTouchStart}
-        onTouchMove={handleListTouchMove}
-        onTouchEnd={handleListTouchEnd}
-        onTouchCancel={handleListTouchEnd}
-        onPointerDown={handleListPointerDown}
-        onPointerMove={handleListPointerMove}
-        onKeyDown={handleListKeyDown}
-        onScroll={handleListScroll}
-        onClick={props.onAutoScrollInteraction}
-        class="relative min-w-0 w-full h-full"
-        style={{
-          "--sticky-accordion-top": showHeader() ? "48px" : "0px",
-        }}
-      >
-        <Show when={showHeader()}>
-          <div
-            data-session-title
-            classList={{
-              "sticky top-0 z-30": true,
-              "bg-[linear-gradient(to_bottom,var(--background-stronger)_48px,transparent)]": true,
-              "w-full": true,
-              "pb-4": true,
-              "pr-3": true,
-              "pl-2 md:pl-4": true,
-              "md:max-w-200 md:mx-auto 2xl:max-w-[1000px]": props.centered,
-            }}
-          >
-            <div class="h-12 w-full flex items-center justify-between gap-2">
-              <div
-                class="flex items-center gap-1 min-w-0 flex-1 pr-3"
-              >
-                <div class="flex items-center min-w-0 flex-1 w-full">
-                  <Show when={parentID()}>
-                    <button
-                      type="button"
-                      data-slot="session-title-parent"
-                      class="min-w-0 max-w-[40%] truncate pl-2 text-[13px] font-[530] leading-4 tracking-[-0.04px] text-v2-text-text-faint transition-colors hover:text-v2-text-text-muted"
-                      onClick={navigateParent}
-                    >
-                      {parentTitle()}
-                    </button>
-                    <span
-                      data-slot="session-title-separator"
-                      class="-translate-y-[0.5px] pl-2 pr-1 text-[11px] font-medium text-v2-text-text-faint"
-                      aria-hidden="true"
-                    >
-                      /
-                    </span>
-                  </Show>
-                  <Show when={childTitle() || title.editing}>
-                    <Show
-                      when={title.editing}
-                      fallback={
-                        <h1
-                          data-slot="session-title-child"
-                          classList={{
-                            "truncate text-[13px] font-[530] leading-4 tracking-[-0.04px] text-v2-text-text-base grow-1 min-w-0": true,
-                          }}
-                          onClick={openTitleEditor}
-                        >
-                          {childTitle()}
-                        </h1>
-                      }
-                    >
-                      <InlineInput
-                        ref={(el) => {
-                          titleRef = el
-                        }}
-                        data-slot="session-title-child"
-                        value={title.draft}
-                        disabled={titleMutation.isPending}
-                        classList={{
-                          "block text-[13px] font-[530] leading-4 tracking-[-0.04px] text-v2-text-text-base": true,
-                          "w-full flex-1 grow-1 min-w-0 pl-1 -ml-1 rounded-[6px]": true,
-                        }}
-                        style={{
-                          "--inline-input-shadow": "var(--shadow-xs-border-select)",
-                        }}
-                        onInput={(event) => setTitle("draft", event.currentTarget.value)}
-                        onKeyDown={(event) => {
-                          event.stopPropagation()
-                          if (event.key === "Enter") {
-                            event.preventDefault()
-                            void saveTitleEditor()
-                            return
-                          }
-                          if (event.key === "Escape") {
-                            event.preventDefault()
-                            closeTitleEditor()
-                          }
-                        }}
-                        onBlur={closeTitleEditor}
-                      />
-                    </Show>
-                  </Show>
-                </div>
-              </div>
+  const actionsBlock = () => (
               <Show when={sessionID()} keyed>
                 {(id) => (
                   <div
                     classList={{
-                      "shrink-0 flex items-center gap-3": true,
+                      "shrink-0 flex items-center gap-2 ml-auto": true,
                     }}
                   >
                     <Show when={hasChildSessions()}>
@@ -1750,10 +1633,6 @@ export function MessageTimeline(props: {
                       </Tooltip>
                     </Show>
                     <SessionRunScripts />
-                    <SessionContextUsage
-                      placement="bottom"
-                      buttonAppearance="default"
-                    />
                     <DropdownMenu
                       gutter={4}
                       placement="bottom-end"
@@ -1767,7 +1646,7 @@ export function MessageTimeline(props: {
                         as={IconButton}
                         icon="dot-grid"
                         variant="ghost"
-                        class="size-6 rounded-md data-[expanded]:bg-surface-base-active"
+                        class="titlebar-icon w-8 h-6 p-0 box-border rounded-md data-[expanded]:bg-surface-base-active"
                         aria-label={language.t("common.moreOptions")}
                         aria-expanded={title.menuOpen}
                         ref={(el: HTMLButtonElement) => {
@@ -1870,6 +1749,160 @@ export function MessageTimeline(props: {
                       </DropdownMenu.Portal>
                     </DropdownMenu>
                   </div>
+                )}
+              </Show>
+  )
+
+  const titleBlock = () => (
+              <div
+                class="pointer-events-auto flex items-center gap-1 min-w-0 flex-1 pr-3"
+              >
+                <div class="flex items-center min-w-0 flex-1 w-full">
+                  <Show when={parentID()}>
+                    <button
+                      type="button"
+                      data-slot="session-title-parent"
+                      class="min-w-0 max-w-[40%] truncate pl-2 text-[13px] font-[530] leading-4 tracking-[-0.04px] text-v2-text-text-faint transition-colors hover:text-v2-text-text-muted"
+                      onClick={navigateParent}
+                    >
+                      {parentTitle()}
+                    </button>
+                    <span
+                      data-slot="session-title-separator"
+                      class="-translate-y-[0.5px] pl-2 pr-1 text-[11px] font-medium text-v2-text-text-faint"
+                      aria-hidden="true"
+                    >
+                      /
+                    </span>
+                  </Show>
+                  <Show when={childTitle() || title.editing}>
+                    <Show
+                      when={title.editing}
+                      fallback={
+                        <h1
+                          data-slot="session-title-child"
+                          role="button"
+                          classList={{
+                            "w-fit max-w-full cursor-text truncate text-[14px] font-[530] leading-4 tracking-[-0.04px] text-v2-text-text-base": true,
+                          }}
+                          onMouseDown={(event) => event.stopPropagation()}
+                          onClick={openTitleEditor}
+                        >
+                          {childTitle()}
+                        </h1>
+                      }
+                    >
+                      <InlineInput
+                        ref={(el) => {
+                          titleRef = el
+                        }}
+                        data-slot="session-title-child"
+                        value={title.draft}
+                        disabled={titleMutation.isPending}
+                        width={
+                          title.width != null
+                            ? `${title.width}px`
+                            : `${Math.max(6, [...(title.draft ?? "")].reduce((sum, ch) => sum + (ch.codePointAt(0)! > 0x2e80 ? 2 : 1), 0))}ch`
+                        }
+                        classList={{
+                          "block text-[14px] font-[530] leading-4 tracking-[-0.04px] text-v2-text-text-base": true,
+                          "pl-1 -ml-1 rounded-[6px]": true,
+                        }}
+                        style={{
+                          "--inline-input-shadow": "var(--shadow-xs-border-select)",
+                        }}
+                        onInput={(event) => setTitle("draft", event.currentTarget.value)}
+                        onKeyDown={(event) => {
+                          event.stopPropagation()
+                          if (event.key === "Enter") {
+                            event.preventDefault()
+                            void saveTitleEditor()
+                            return
+                          }
+                          if (event.key === "Escape") {
+                            event.preventDefault()
+                            closeTitleEditor()
+                          }
+                        }}
+                        onBlur={closeTitleEditor}
+                      />
+                    </Show>
+                  </Show>
+                </div>
+              </div>
+  )
+
+  return (
+    <div class="relative w-full h-full min-w-0">
+      <div
+        class="absolute left-1/2 -translate-x-1/2 z-[60] pointer-events-none transition-all duration-200 ease-out"
+        classList={{
+          "bottom-6": true,
+          "opacity-100 translate-y-0 scale-100": props.scroll.overflow && props.scroll.jump,
+          "opacity-0 translate-y-2 pointer-events-none": !props.scroll.overflow || !props.scroll.jump,
+          "scale-95": !props.scroll.overflow || !props.scroll.jump,
+        }}
+      >
+        <button
+          type="button"
+          aria-label={language.t("session.messages.jumpToLatest")}
+          class="pointer-events-auto flex items-center justify-center w-10 h-8 bg-transparent border-none cursor-pointer p-0 group"
+          onClick={props.onResumeScroll}
+        >
+          <div
+            class="flex items-center justify-center w-8 h-6 rounded-[6px] border border-border-weaker-base bg-[color-mix(in_srgb,var(--surface-raised-stronger-non-alpha)_80%,transparent)] backdrop-blur-[0.75px] transition-colors group-hover:border-[var(--border-weak-base)] group-hover:[--icon-base:var(--icon-hover)]"
+            style={{
+              "box-shadow":
+                "0 51px 60px 0 rgba(0,0,0,0.10), 0 15px 18px 0 rgba(0,0,0,0.12), 0 6.386px 7.513px 0 rgba(0,0,0,0.12), 0 2.31px 2.717px 0 rgba(0,0,0,0.20)",
+            }}
+          >
+            <Icon name="arrow-down-to-line" size="small" />
+          </div>
+        </button>
+      </div>
+      <ScrollView
+        viewportRef={bindListRoot}
+        onWheel={handleListWheel}
+        onTouchStart={handleListTouchStart}
+        onTouchMove={handleListTouchMove}
+        onTouchEnd={handleListTouchEnd}
+        onTouchCancel={handleListTouchEnd}
+        onPointerDown={handleListPointerDown}
+        onPointerMove={handleListPointerMove}
+        onKeyDown={handleListKeyDown}
+        onScroll={handleListScroll}
+        onClick={props.onAutoScrollInteraction}
+        class="relative min-w-0 w-full h-full"
+        style={{
+          "--sticky-accordion-top": showHeader() ? (layout.isDesktop() ? "40px" : "36px") : "0px",
+        }}
+      >
+        <Show when={showHeader()}>
+          <div
+            data-session-title
+            classList={{
+              "sticky top-0 z-30": true,
+              "bg-[linear-gradient(to_bottom,var(--background-stronger)_48px,transparent)]": true,
+              "w-full": true,
+              "pr-3": true,
+              "pl-2 md:pl-4": true,
+              "md:max-w-200 md:mx-auto 2xl:max-w-[1000px]": props.centered,
+              // 桌面端标题与操作都在标题栏里，行内头部只留出一条让聊天内容下移的留白。
+              "h-10": layout.isDesktop(),
+              "h-9 pb-4": !layout.isDesktop(),
+            }}
+          >
+            <div class="h-full w-full flex items-center justify-between gap-2">
+              <Show when={layout.isDesktop() && sessionActionsMount()} fallback={actionsBlock()}>
+                {(mount) => <Portal mount={mount()}>{actionsBlock()}</Portal>}
+              </Show>
+              <Show when={layout.isDesktop() && titlebarCenterMount()} fallback={titleBlock()}>
+                {(mount) => (
+                  <Portal mount={mount()}>
+                    <div data-component="session-title-column" class="flex min-w-0 translate-y-2">
+                      {titleBlock()}
+                    </div>
+                  </Portal>
                 )}
               </Show>
             </div>

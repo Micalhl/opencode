@@ -57,6 +57,12 @@ if (import.meta.env.VITE_SENTRY_DSN) {
   })
 }
 
+// macOS 窗口启用原生磨砂材质：外壳保持透明，让侧栏玻璃透出桌面模糊。
+if (navigator.userAgent.includes("Mac")) {
+  document.documentElement.dataset.vibrancy = "true"
+  document.documentElement.style.removeProperty("background-color")
+}
+
 void initI18n()
 
 const deepLinkEvent = "opencode:deep-link"

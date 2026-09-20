@@ -33,6 +33,7 @@ import {
   type WorkspaceSidebarContext,
 } from "./sidebar-workspace"
 import { displayName, sortedRootSessions } from "./helpers"
+import { createTitleScroll } from "./title-scroll"
 
 export type ProjectSidebarContext = {
   currentProject: Accessor<LocalProject | undefined>
@@ -53,7 +54,7 @@ export type TiledWorkspaceDrag = {
   onCreateWorkspace: (project: LocalProject) => void
 }
 
-// Codex 式平铺：各项目会话直接跟在项目下方，按置顶 + 今天 / 昨天 / 日期分组展示。
+// Codex 式平铺：各项目会话直接跟在项目下方，仅置顶会话单独成组，其余按最近更新平铺。
 
 export const ProjectDragOverlay = (props: {
   projects: Accessor<LocalProject[]>
@@ -91,8 +92,8 @@ export const TiledProjectSection = (props: {
   const serverSync = useServerSync()
   const queryOptions = useQueryOptions()
   const sortable = createSortable(props.project.worktree)
-  const selected = createMemo(() => props.projectCtx.currentProject()?.worktree === props.project.worktree)
   const worktree = createMemo(() => props.project.worktree)
+  const titleScroll = createTitleScroll()
   const slug = createMemo(() => base64Encode(worktree()))
   const workspacesEnabled = createMemo(() => props.projectCtx.workspacesEnabled(props.project))
   const canToggle = createMemo(() => {
@@ -177,22 +178,31 @@ export const TiledProjectSection = (props: {
           data-project={slug()}
           title={worktree()}
           onClick={() => props.onToggleExpanded()}
+          onPointerEnter={titleScroll.start}
+          onPointerLeave={titleScroll.stop}
           onKeyDown={(event) => {
             if (event.key === "Enter" || event.key === " ") {
               event.preventDefault()
               props.onToggleExpanded()
             }
           }}
-          class="group/project relative flex min-w-0 cursor-pointer items-center gap-1 rounded-lg px-2 py-1.5 transition-colors hover:bg-surface-raised-base-hover focus-visible:outline-none"
+          class="group/project relative flex min-w-0 cursor-pointer items-center gap-2 rounded-[10px] px-2 py-1.5 transition-colors hover:bg-surface-raised-base-hover focus-visible:outline-none"
         >
-          <Show when={selected()}>
-            <div
-              aria-hidden="true"
-              class="pointer-events-none absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-full bg-icon-interactive-base"
-            />
-          </Show>
           <Icon name="folder" size="small" class="shrink-0 text-icon-base transition-transform duration-200 group-hover/project:scale-110" />
-          <span class="min-w-0 flex-1 truncate text-14-medium text-text-strong">{displayName(props.project)}</span>
+          <span
+            ref={titleScroll.setWrap}
+            data-title-scroll
+            data-scrolling={titleScroll.scrolling() ? "true" : undefined}
+            class="min-w-0 flex-1 overflow-hidden text-14-medium text-text-strong"
+          >
+            <span
+              ref={titleScroll.setInner}
+              class="block whitespace-nowrap"
+              classList={{ truncate: !titleScroll.hovering(), "w-max": titleScroll.hovering() }}
+            >
+              {displayName(props.project)}
+            </span>
+          </span>
           <div
             class="flex shrink-0 items-center"
             onClick={(event) => event.stopPropagation()}
@@ -313,7 +323,7 @@ export const TiledProjectSection = (props: {
 
         <div class="sidebar-reveal" data-open={props.expanded ? "" : undefined}>
           <div class="sidebar-reveal-inner">
-            <div class="min-w-0 pt-1 pb-1 pl-4 pr-4">
+            <div class="min-w-0 pt-1 pb-1 pl-2 pr-2">
             <Show
               when={workspacesEnabled()}
               fallback={

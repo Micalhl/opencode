@@ -620,6 +620,7 @@ export const dict = {
   "context.usage.cacheHitRate": "缓存命中率",
   "context.usage.cacheTokens": "缓存 token（读/写）",
   "context.usage.clickToView": "点击查看上下文",
+  "context.usage.popoverTitle": "上下文已用 {{percent}}%",
   "context.usage.view": "查看上下文用量",
 
   "language.en": "English",

@@ -1,4 +1,4 @@
-import { createEffect, createMemo, createSignal, onMount, Show, untrack } from "solid-js"
+import { type Accessor, createEffect, createMemo, createSignal, onCleanup, onMount, Show, untrack } from "solid-js"
 import { createStore } from "solid-js/store"
 import { useLocation, useNavigate, useParams } from "@solidjs/router"
 import { IconButton } from "@opencode-ai/ui/icon-button"
@@ -37,7 +37,7 @@ type TauriApi = {
 const tauriApi = () => (window as unknown as { __TAURI__?: TauriApi }).__TAURI__
 const currentDesktopWindow = () => tauriApi()?.window?.getCurrentWindow?.()
 const currentThemeWindow = () => tauriApi()?.webviewWindow?.getCurrentWebviewWindow?.()
-const legacyTitlebarHeight = 40
+const legacyTitlebarHeight = 44
 const minTitlebarZoom = 0.25
 const windowsControlsBaseWidth = 138 // 3 native Windows caption buttons at 46px each.
 
@@ -45,6 +45,30 @@ export type TitlebarUpdate = {
   version: () => string | undefined
   installing: () => boolean
   install: () => void
+}
+
+function useTitlebarMount(id: string) {
+  const [mount, setMount] = createSignal<HTMLElement | null>(null)
+  onMount(() => {
+    const element = document.getElementById(id)
+    setMount(element)
+    if (!element || typeof MutationObserver !== "function") return
+    // 路由切换时可能短暂存在两个渲染实例，同一个挂载点只保留最后投进来的那份。
+    const observer = new MutationObserver(() => {
+      while (element.children.length > 1) element.removeChild(element.firstElementChild!)
+    })
+    observer.observe(element, { childList: true })
+    onCleanup(() => observer.disconnect())
+  })
+  return mount
+}
+
+export function useTitlebarCenterMount() {
+  return useTitlebarMount("opencode-titlebar-center")
+}
+
+export function useTitlebarSessionActionsMount() {
+  return useTitlebarMount("opencode-titlebar-session-actions")
 }
 
 export function useTitlebarRightMount() {
@@ -62,7 +86,7 @@ export function useTitlebarRightMount() {
   return mount
 }
 
-export function Titlebar(props: { update?: TitlebarUpdate }) {
+export function Titlebar(props: { update?: TitlebarUpdate; sizing?: Accessor<boolean> }) {
   const layout = useLayout()
   const platform = usePlatform()
   const command = useCommand()
@@ -73,6 +97,25 @@ export function Titlebar(props: { update?: TitlebarUpdate }) {
   const params = useParams()
   const isDesktop = layout.isDesktop
   const bottom = createMemo(() => false)
+  // 与侧栏磨砂融合的标题栏效果只属于 Default 主题。
+  const glassTheme = createMemo(() => theme.themeId() === "default")
+  const sidebarWidth = createMemo(() =>
+    isDesktop() && layout.sidebar.opened() ? Math.max(layout.sidebar.width(), 244) : 0,
+  )
+
+  // 侧栏面板要延伸到窗口顶部并垫在标题栏下方，这里把标题栏实际高度发布给布局使用。
+  let headerRef: HTMLElement | undefined
+  onMount(() => {
+    if (!headerRef) return
+    const apply = () => {
+      if (headerRef) document.documentElement.style.setProperty("--titlebar-height", `${headerRef.offsetHeight}px`)
+    }
+    apply()
+    if (typeof ResizeObserver !== "function") return
+    const observer = new ResizeObserver(apply)
+    observer.observe(headerRef)
+    onCleanup(() => observer.disconnect())
+  })
 
   const mac = createMemo(() => platform.platform === "desktop" && platform.os === "macos")
   const windows = createMemo(() => platform.platform === "desktop" && platform.os === "windows")
@@ -203,10 +246,16 @@ export function Titlebar(props: { update?: TitlebarUpdate }) {
 
   return (
     <header
+      ref={(element) => {
+        headerRef = element
+      }}
       classList={{
         "shrink-0 relative flex flex-row": true,
-        "h-10 bg-background-base overflow-hidden": true,
+        "h-10 overflow-hidden": true,
+        "z-40": glassTheme(),
         "order-last": bottom(),
+        // Default 主题桌面端标题栏浮在表层：左侧由延伸到窗口顶部的侧栏磨砂面板提供背景，其余盖主内容底色。
+        "bg-background-base": !isDesktop() || !glassTheme(),
       }}
       style={{
         "min-height": minHeight(),
@@ -222,8 +271,21 @@ export function Titlebar(props: { update?: TitlebarUpdate }) {
       onMouseDown={drag}
       onDblClick={maximize}
     >
-        <div class="relative h-full min-h-full w-full" style={{ zoom: counterZoom() }}>
-          <div class="flex h-full w-full items-center">
+      <Show when={isDesktop() && glassTheme()}>
+        <div
+          aria-hidden="true"
+          data-component="content-surface"
+          class="pointer-events-none absolute inset-y-0 right-0 bg-background-base"
+          classList={{
+            "transition-[left] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none":
+              !props.sizing?.(),
+          }}
+          style={{ left: `${sidebarWidth()}px` }}
+        />
+      </Show>
+      <div class="relative h-full min-h-full w-full" style={{ zoom: counterZoom() }}>
+            {/* 红绿灯位置（trafficLightPosition y=20）比内容垂直居中略低，这里对齐同一行。 */}
+            <div classList={{ "flex h-full w-full items-center": true, "pt-2": mac() }}>
           <div
             data-titlebar-side="left"
             classList={{
@@ -362,24 +424,24 @@ export function Titlebar(props: { update?: TitlebarUpdate }) {
           <div
             data-titlebar-side="right"
             classList={{
-              "relative z-10 flex min-w-0 flex-1 items-center justify-end": true,
+              "relative z-10 flex min-w-0 flex-1 items-center gap-2 justify-end": true,
               "pr-2": !windows(),
             }}
             data-tauri-drag-region
             onMouseDown={drag}
           >
+            <div id="opencode-titlebar-session-actions" class="flex items-center gap-1 shrink-0" />
             <div id="opencode-titlebar-right" class="flex items-center gap-1 shrink-0 justify-end" />
             <Show when={windows()}>
               <div data-tauri-decorum-tb class="flex flex-row" />
             </Show>
           </div>
           </div>
-
-          <div class="pointer-events-none absolute inset-0 z-20 flex items-center justify-center">
-            <div
-              id="opencode-titlebar-center"
-              class="pointer-events-auto flex min-w-0 max-w-full justify-center"
-            />
+          <div
+            class="pointer-events-none absolute inset-y-0 right-0 z-20 flex items-center"
+            style={{ left: mac() ? `${-84 / zoom()}px` : 0 }}
+          >
+            <div id="opencode-titlebar-center" class="pointer-events-none block w-full min-w-0" />
           </div>
         </div>
 
