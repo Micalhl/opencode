@@ -88,6 +88,29 @@ function applyWindowBackdrop(win: BrowserWindow) {
   win.invalidateShadow()
 }
 
+// 最小化/最大化往返、重新显示或进程被激活后，macOS 会丢掉 vibrancy 的 NSVisualEffectView，
+// 表现为侧栏直接透出未模糊的桌面。同值 setVibrancy 是空操作，必须先置空再设回强制重建；
+// 系统在恢复动画里可能再覆盖一次，所以延迟再补两发。短时间内的多次事件用时间戳去重。
+const backdropRefreshedAt = new WeakMap<BrowserWindow, number>()
+export function refreshWindowBackdrop(win: BrowserWindow) {
+  if (process.platform !== "darwin" || win.isDestroyed()) return
+  const now = Date.now()
+  if (now - (backdropRefreshedAt.get(win) ?? 0) < 300) return
+  backdropRefreshedAt.set(win, now)
+  const apply = () => {
+    if (win.isDestroyed()) return
+    win.setVibrancy(null)
+    applyWindowBackdrop(win)
+  }
+  apply()
+  setTimeout(apply, 150)
+  setTimeout(apply, 600)
+}
+
+if (process.platform === "darwin") {
+  app.on("activate", () => BrowserWindow.getAllWindows().forEach((win) => refreshWindowBackdrop(win)))
+}
+
 export function getBackgroundColor(): string | undefined {
   return backgroundColor
 }
@@ -239,6 +262,24 @@ export function createMainWindow(id: string = randomUUID()) {
   if (process.platform === "darwin") {
     win.on("enter-full-screen", () => applyWindowBackdrop(win))
     win.on("leave-full-screen", () => applyWindowBackdrop(win))
+    // 最小化/隐藏过后材质会失效，恢复、重新显示或重新聚焦时补一次（含延迟补发）。
+    let backdropStale = false
+    const refreshIfStale = () => {
+      if (!backdropStale) return
+      backdropStale = false
+      refreshWindowBackdrop(win)
+    }
+    win.on("minimize", () => {
+      backdropStale = true
+    })
+    win.on("hide", () => {
+      backdropStale = true
+    })
+    win.on("restore", () => refreshWindowBackdrop(win))
+    win.on("maximize", () => refreshWindowBackdrop(win))
+    win.on("unmaximize", () => refreshWindowBackdrop(win))
+    win.on("show", refreshIfStale)
+    win.on("focus", refreshIfStale)
   }
 
   win.once("ready-to-show", () => {
