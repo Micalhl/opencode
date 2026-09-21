@@ -118,12 +118,15 @@ export function Titlebar(props: { update?: TitlebarUpdate; sizing?: Accessor<boo
   })
 
   // 中缝挂载点是覆盖整条标题栏的浮层，默认会让长标题压到右侧按钮上；按右侧按钮的实际位置收窄可用宽度。
+  // 同时发布左侧控件的右缘位置，侧栏收起时标题用它对位，避免退回到 24px 压住左侧按钮。
   let centerOverlayRef: HTMLDivElement | undefined
   onMount(() => {
     if (!headerRef) return
     const side = headerRef.querySelector<HTMLElement>('[data-titlebar-side="right"]')
-    if (!side) return
+    const leftSide = headerRef.querySelector<HTMLElement>('[data-titlebar-side="left"]')
+    if (!side || !leftSide) return
     const mounts = [...side.querySelectorAll<HTMLElement>("#opencode-titlebar-session-actions, #opencode-titlebar-right")]
+    const leftItems = [...leftSide.querySelectorAll<HTMLElement>(":scope > *")]
     const apply = () => {
       if (!headerRef || !centerOverlayRef) return
       const boundary = Math.min(...mounts.map((el) => el.getBoundingClientRect().left))
@@ -131,12 +134,18 @@ export function Titlebar(props: { update?: TitlebarUpdate; sizing?: Accessor<boo
         ? Math.max(0, headerRef.getBoundingClientRect().right - boundary + 8)
         : 0
       centerOverlayRef.style.right = `${offset}px`
+      const leftEdge = Math.max(
+        ...leftItems.map((el) => el.getBoundingClientRect().right),
+        headerRef.getBoundingClientRect().left,
+      )
+      headerRef.style.setProperty("--titlebar-left-edge", `${Math.max(0, leftEdge - headerRef.getBoundingClientRect().left + 12)}px`)
     }
     apply()
     if (typeof ResizeObserver !== "function") return
     const observer = new ResizeObserver(apply)
     observer.observe(headerRef)
     mounts.forEach((el) => observer.observe(el))
+    leftItems.forEach((el) => observer.observe(el))
     onCleanup(() => observer.disconnect())
   })
 

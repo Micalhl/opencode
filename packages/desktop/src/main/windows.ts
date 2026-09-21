@@ -185,7 +185,7 @@ export function createMainWindow(id: string = randomUUID()) {
     y: state.y,
     width: state.width,
     height: state.height,
-    minWidth: 480,
+    minWidth: 768,
     show: false,
     autoHideMenuBar: true,
     title: "OpenCode",

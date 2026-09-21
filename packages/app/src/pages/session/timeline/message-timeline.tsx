@@ -1899,7 +1899,7 @@ export function MessageTimeline(props: {
               <Show when={layout.isDesktop() && titlebarCenterMount()} fallback={titleBlock()}>
                 {(mount) => (
                   <Portal mount={mount()}>
-                    <div data-component="session-title-column" class="flex w-fit max-w-full min-w-0 translate-y-2">
+                    <div data-component="session-title-column" class="flex w-fit max-w-full min-w-0 translate-y-1">
                       {titleBlock()}
                     </div>
                   </Portal>

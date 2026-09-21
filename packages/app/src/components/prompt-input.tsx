@@ -1496,7 +1496,8 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
             </div>
           </div>
 
-          <div class="pointer-events-none absolute bottom-2 left-2 right-14 flex items-center gap-1.5 min-w-0">
+          {/* 右侧 76px = right-2(8) + 用量/发送两个 size-8 按钮与 gap-1(68)，否则窄窗口下控件会压到按钮底下。 */}
+          <div class="pointer-events-none absolute bottom-2 left-2 right-[76px] flex items-center gap-1.5 min-w-0">
             <div
               aria-hidden={store.mode !== "normal"}
               class="pointer-events-auto shrink-0"
@@ -1580,6 +1581,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                     <Show when={store.mode !== "shell"}>
                       <div
                         data-component="prompt-model-control"
+                        class="min-w-0"
                         classList={{ "animate-in fade-in duration-300": providersShouldFadeIn() }}
                       >
                         <Show
